@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classificador de spam</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0e0e11;
+      --card-bg: #141417;
+      --card-inner: #19191d;
+      --border-color: #27272a;
+      --border-focus: #3f3f46;
+      --text-primary: #f4f4f5;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --accent-spam: #ef4444;
+      --accent-spam-bg: #371318;
+      --accent-spam-border: #5a1c22;
+      --accent-ham: #22c55e;
+      --accent-ham-bg: #092c19;
+      --accent-ham-border: #14532d;
+      --blue-badge-bg: #172554;
+      --blue-badge-text: #60a5fa;
+      --blue-badge-border: #1e40af;
+      --green-badge-bg: #052e16;
+      --green-badge-text: #4ade80;
+      --green-badge-border: #14532d;
+      --red-badge-bg: #450a0a;
+      --red-badge-text: #f87171;
+      --red-badge-border: #7f1d1d;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 28px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Top Browser Mockup bar if needed or directly header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 6px;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 19px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .header-title svg {
+      width: 22px;
+      height: 22px;
+      stroke: #3b82f6;
+    }
+
+    .badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-version {
+      background: var(--blue-badge-bg);
+      color: var(--blue-badge-text);
+      border: 1px solid var(--blue-badge-border);
+    }
+
+    .badge-health {
+      background: var(--green-badge-bg);
+      color: var(--green-badge-text);
+      border: 1px solid var(--green-badge-border);
+    }
+
+    .badge-health.error {
+      background: var(--red-badge-bg);
+      color: var(--red-badge-text);
+      border: 1px solid var(--red-badge-border);
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+
+    /* Form Section */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .form-label {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .form-input {
+      background: #121215;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text-primary);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s ease;
+      width: 100%;
+    }
+
+    .form-input:focus {
+      border-color: #52525b;
+    }
+
+    textarea.form-input {
+      min-height: 85px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+
+    .btn {
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 9px 18px;
+      border-radius: 9999px;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background-color: #ffffff;
+      color: #09090b;
+      padding: 9px 24px;
+    }
+
+    .btn-primary:hover {
+      background-color: #e4e4e7;
+    }
+
+    .btn-secondary {
+      background-color: #1e1e24;
+      color: #ffffff;
+      border: 1px solid #33333b;
+    }
+
+    .btn-secondary:hover {
+      background-color: #27272f;
+      border-color: #444450;
+    }
+
+    /* Cards */
+    .card-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .card {
+      background: #141417;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    /* Result Card Specifics */
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .tag-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .tag-spam {
+      background: var(--accent-spam-bg);
+      color: #f87171;
+      border: 1px solid var(--accent-spam-border);
+    }
+
+    .tag-ham {
+      background: var(--accent-ham-bg);
+      color: #4ade80;
+      border: 1px solid var(--accent-ham-border);
+    }
+
+    .response-time {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+    }
+
+    .prob-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .prob-label {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .prob-track {
+      width: 100%;
+      height: 7px;
+      background: #27272a;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .prob-fill {
+      height: 100%;
+      width: 0%;
+      background: #f87171;
+      border-radius: 9999px;
+      transition: width 0.35s ease, background-color 0.35s ease;
+    }
+
+    .prob-fill.ham {
+      background: #4ade80;
+    }
+
+    .result-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 12.5px;
+    }
+
+    .prob-value {
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .version-answered {
+      color: var(--text-muted);
+    }
+
+    .error-box {
+      display: none;
+      background: #371318;
+      border: 1px solid #7f1d1d;
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.4;
+      margin-top: 6px;
+    }
+
+    /* Operation Panel */
+    .ops-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .ops-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .btn-ops {
+      background-color: transparent;
+      color: var(--text-primary);
+      border: 1px solid #33333b;
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-ops:hover {
+      background-color: #1e1e24;
+      border-color: #4a4a55;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .metric-card {
+      background: #111114;
+      border: 1px solid #202024;
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-title">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+        </svg>
+        <span>Classificador de spam</span>
+      </div>
+      <div class="badges">
+        <span class="badge badge-version" id="versionBadge">versão v1</span>
+        <span class="badge badge-health" id="healthBadge">
+          <span class="badge-dot"></span>
+          <span id="healthText">Serviço saudável</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- Chave de API -->
+    <div class="form-group">
+      <label class="form-label" for="apiKeyInput">Chave de API</label>
+      <input type="password" id="apiKeyInput" class="form-input" placeholder="Digite a chave da API (ex: chave-ficticia-123)">
+    </div>
+
+    <!-- Mensagem -->
+    <div class="form-group">
+      <label class="form-label" for="messageInput">Mensagem</label>
+      <textarea id="messageInput" class="form-input" placeholder="Digite ou selecione um exemplo de mensagem para testar...">Parabéns! Você ganhou um prêmio, clique no link para resgatar agora</textarea>
+    </div>
+
+    <!-- Botões -->
+    <div class="actions-row">
+      <button class="btn btn-primary" id="btnClassify" onclick="classifyMessage()">Classificar</button>
+      <button class="btn btn-secondary" onclick="setExampleSpam()">Exemplo de spam</button>
+      <button class="btn btn-secondary" onclick="setExampleHam()">Exemplo comum</button>
+    </div>
+
+    <!-- Erro Display -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- Resultado -->
+    <div class="card-section" id="resultSection">
+      <div class="card-title">Resultado</div>
+      <div class="card" id="resultCard">
+        <div class="result-header">
+          <span class="tag-badge tag-spam" id="resultTag">
+            <span id="tagIcon">⚠</span>
+            <span id="tagText">spam</span>
+          </span>
+          <span class="response-time" id="responseTime">resposta em 12 ms</span>
+        </div>
+
+        <div class="prob-section">
+          <div class="prob-label">Probabilidade</div>
+          <div class="prob-track">
+            <div class="prob-fill" id="probFill" style="width: 67%;"></div>
+          </div>
+          <div class="result-footer">
+            <span class="prob-value" id="probValue">0,67</span>
+            <span class="version-answered" id="versionAnswered">respondido pela versão v1</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Painel de Operação -->
+    <div class="card">
+      <div class="ops-header">
+        <span class="ops-title">Painel de operação</span>
+        <button class="btn-ops" id="btnLoad50" onclick="send50Requests()">
+          <span>▷</span> Enviar 50 requisições
+        </button>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">Requisições</span>
+          <span class="metric-value" id="metricTotal">0</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Erros 5xx</span>
+          <span class="metric-value" id="metricErrors">0</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Latência média</span>
+          <span class="metric-value" id="metricLatency">0 ms</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Recupera chave salva no localStorage se existir
+    const savedKey = localStorage.getItem("SPAM_API_KEY");
+    if (savedKey) {
+      document.getElementById("apiKeyInput").value = savedKey;
+    }
+
+    // Salva a chave quando o usuário alterar
+    document.getElementById("apiKeyInput").addEventListener("input", (e) => {
+      localStorage.setItem("SPAM_API_KEY", e.target.value.trim());
+    });
+
+    // Exemplos rápidos
+    function setExampleSpam() {
+      document.getElementById("messageInput").value = "Parabéns! Você ganhou um prêmio, clique no link para resgatar agora";
+      clearError();
+    }
+
+    function setExampleHam() {
+      document.getElementById("messageInput").value = "A reunião de amanhã foi adiada para quinta";
+      clearError();
+    }
+
+    function showError(msg) {
+      const err = document.getElementById("errorBox");
+      err.textContent = msg;
+      err.style.display = "block";
+    }
+
+    function clearError() {
+      const err = document.getElementById("errorBox");
+      err.textContent = "";
+      err.style.display = "none";
+    }
+
+    // Atualiza estado de saúde
+    async function checkHealth() {
+      try {
+        const res = await fetch("/health");
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById("versionBadge").textContent = `versão ${data.versao || 'v1'}`;
+          document.getElementById("healthBadge").className = "badge badge-health";
+          document.getElementById("healthText").textContent = "Serviço saudável";
+        } else {
+          throw new Error("HTTP " + res.status);
+        }
+      } catch (e) {
+        document.getElementById("healthBadge").className = "badge badge-health error";
+        document.getElementById("healthText").textContent = "Serviço indisponível";
+      }
+    }
+
+    // Atualiza métricas
+    async function fetchMetrics() {
+      try {
+        const res = await fetch("/metrics");
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById("metricTotal").textContent = data.requisicoes;
+          document.getElementById("metricErrors").textContent = data.erros_5xx;
+          document.getElementById("metricLatency").textContent = `${data.latencia_media_ms} ms`;
+        }
+      } catch (e) {
+        // Ignora silenciosamente se metrics falhar
+      }
+    }
+
+    // Classificar mensagem
+    async function classifyMessage() {
+      clearError();
+      const texto = document.getElementById("messageInput").value;
+      const apiKey = document.getElementById("apiKeyInput").value.trim();
+
+      if (!texto.trim()) {
+        showError("A mensagem não pode ser vazia.");
+        return;
+      }
+
+      const headers = {
+        "Content-Type": "application/json"
+      };
+      if (apiKey) {
+        headers["X-API-Key"] = apiKey;
+      }
+
+      const t0 = performance.now();
+      try {
+        const res = await fetch("/predict", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ texto: texto })
+        });
+
+        const elapsedMs = Math.round(performance.now() - t0);
+        document.getElementById("responseTime").textContent = `resposta em ${elapsedMs} ms`;
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const detail = errData.detail || `Erro HTTP ${res.status}`;
+          if (res.status === 401) {
+            showError(`Erro 401: Chave de API inválida ou ausente. ${detail}`);
+          } else {
+            showError(`Erro ${res.status}: ${detail}`);
+          }
+          fetchMetrics();
+          return;
+        }
+
+        const data = await res.json();
+        renderResult(data);
+        fetchMetrics();
+      } catch (err) {
+        showError(`Falha ao conectar com o serviço: ${err.message}`);
+        fetchMetrics();
+      }
+    }
+
+    function renderResult(data) {
+      const isSpam = data.rotulo === "spam";
+      const tagBadge = document.getElementById("resultTag");
+      const tagIcon = document.getElementById("tagIcon");
+      const tagText = document.getElementById("tagText");
+      const probFill = document.getElementById("probFill");
+      const probValue = document.getElementById("probValue");
+      const versionAnswered = document.getElementById("versionAnswered");
+
+      if (isSpam) {
+        tagBadge.className = "tag-badge tag-spam";
+        tagIcon.textContent = "⚠";
+        tagText.textContent = "spam";
+        probFill.className = "prob-fill";
+      } else {
+        tagBadge.className = "tag-badge tag-ham";
+        tagIcon.textContent = "✓";
+        tagText.textContent = "não spam";
+        probFill.className = "prob-fill ham";
+      }
+
+      const pct = Math.round(data.probabilidade * 100);
+      probFill.style.width = `${pct}%`;
+      probValue.textContent = (data.probabilidade.toString()).replace(".", ",");
+      versionAnswered.textContent = `respondido pela versão ${data.versao}`;
+    }
+
+    // Disparar carga de 50 requisições
+    async function send50Requests() {
+      const btn = document.getElementById("btnLoad50");
+      btn.disabled = true;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = "<span>⏳</span> Enviando 50 reqs...";
+
+      const apiKey = document.getElementById("apiKeyInput").value.trim();
+      const headers = { "Content-Type": "application/json" };
+      if (apiKey) headers["X-API-Key"] = apiKey;
+
+      const samples = [
+        "Parabéns! Você ganhou um prêmio, clique no link para resgatar agora",
+        "A reunião de amanhã foi adiada para quinta",
+        "Promoção exclusiva só hoje! Clique e resgate",
+        "Favor enviar o relatório financeiro até as 17h"
+      ];
+
+      for (let i = 0; i < 50; i++) {
+        const text = samples[i % samples.length];
+        try {
+          await fetch("/predict", {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify({ texto: text })
+          });
+        } catch (e) {}
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      fetchMetrics();
+    }
+
+    // Inicialização ao carregar a página
+    window.addEventListener("DOMContentLoaded", () => {
+      checkHealth();
+      fetchMetrics();
+      // Classifica uma vez o exemplo padrão para já preencher o visual
+      classifyMessage();
+      // Atualiza saúde periodicamente a cada 15 segundos
+      setInterval(checkHealth, 15000);
+    });
+  </script>
+</body>
+</html>
