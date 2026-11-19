@@ -14,23 +14,32 @@ Este projeto implementa a infraestrutura de entrega e operação em produção (
 
 O modelo pré-treinado (`model/modelo.joblib`), baseado em **TF-IDF + Regressão Logística**, foi desacoplado do ambiente exploratório (notebooks) e integrado a uma **API REST de alta performance** com interface visual interativa e painel de métricas operacionais em tempo real.
 
+### Fluxograma de Inferência (`POST /predict`)
+
+```mermaid
+flowchart TD
+    A["Usuário na Página Web"] -->|"Envia texto + X-API-Key"| B["POST /predict (FastAPI)"]
+    B --> C{"Texto está vazio?"}
+    C -->|"Sim"| D["Retorna HTTP 400 (Bad Request)"]
+    C -->|"Não"| E{"API_KEY válida?"}
+    E -->|"Não"| F["Retorna HTTP 401 (Unauthorized)"]
+    E -->|"Sim"| G["Modelo .joblib (TF-IDF + Regressão Logística)"]
+    G --> H["Registra latência e contagem (/metrics)"]
+    H --> I["Retorna HTTP 200 (rotulo, probabilidade, versao)"]
+    I --> J["Interface exibe resultado e barra"]
 ```
-       ┌────────────────────────┐
-       │   Página Web (UI)      │
-       │ (Dark Mode / Métricas) │
-       └───────────┬────────────┘
-                   │ HTTP / Fetch (com X-API-Key)
-                   ▼
-       ┌────────────────────────┐
-       │    API FastAPI         │
-       │  /health  /predict     │
-       └───────────┬────────────┘
-                   │ In-Memory Inference
-                   ▼
-       ┌────────────────────────┐
-       │  Modelo scikit-learn   │
-       │    (modelo.joblib)     │
-       └────────────────────────┘
+
+### Fluxograma da Esteira MLOps (Git → CI → Deploy)
+
+```mermaid
+flowchart LR
+    A["Dupla (Branch + PR)"] -->|"git push"| B["GitHub Actions (CI)"]
+    B --> C{"pytest -v passou?"}
+    C -->|"Não"| D["Corrige código na branch"]
+    D --> A
+    C -->|"Sim"| E["Merge na main + Tag v1"]
+    E --> F["Deploy no Render (CD)"]
+    F --> G["Aplicação Online"]
 ```
 
 ---
@@ -110,6 +119,11 @@ As variáveis devem ser configuradas via arquivo `.env` (no ambiente local) ou n
 | `MODEL_PATH` | *(Opcional)* Caminho para o arquivo `.joblib` | `model/modelo.joblib` | `model/modelo.joblib` |
 
 > ⚠️ **Segurança:** O arquivo `.env` está explicitamente ignorado no `.gitignore` para garantir que nenhum segredo seja enviado ao repositório público.
+
+### Diferença entre `APP_ENV=dev` e `APP_ENV=test` / `prod`
+
+* **`APP_ENV=dev` (ambiente local):** utilizado nas máquinas da dupla durante o desenvolvimento. As variáveis são lidas do arquivo `.env` local (ignorado pelo Git), o servidor roda com `--reload` automático e os testes são feitos em `localhost:8000`.
+* **`APP_ENV=test` ou `prod` (ambiente online / CI):** utilizado no GitHub Actions (`test`) e na plataforma de hospedagem Render (`test`/`prod`). Não existe arquivo `.env` no repositório; todas as variáveis e segredos (`API_KEY`, `MODEL_VERSION`, `APP_ENV`) são injetados diretamente pelo painel da plataforma e o servidor executa em modo de produção sem `--reload`, exposto em `0.0.0.0:$PORT`.
 
 ---
 
@@ -194,7 +208,22 @@ curl -i -X POST http://localhost:8000/predict \
 
 ---
 
-## 7. Divisão de Responsabilidades da Dupla
+## 7. Testes Automatizados e Pipeline de CI
+
+O projeto possui testes automatizados em `tests/test_api.py` cobrindo `/health`, `/metrics`, autenticação (`401`), validação de texto vazio (`400`) e inferência (`200`).
+
+### Rodar os testes localmente
+```bash
+pip install pytest httpx
+pytest -v
+```
+
+### Integração Contínua (GitHub Actions)
+O workflow definido em `.github/workflows/ci.yml` executa automaticamente a cada `push` ou `pull_request` direcionado à branch `main`, instalando o Python 3.12, as dependências exatas e executando `pytest -v`.
+
+---
+
+## 8. Divisão de Responsabilidades da Dupla
 
 O desenvolvimento foi conduzido em regime de **Pair Programming** (piloto e copiloto), com alternância de tarefas:
 
