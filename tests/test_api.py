@@ -1,12 +1,13 @@
 import os
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
 
-# Garante que durante os testes a API_KEY seja conhecida
+# Garante que durante os testes as variáveis de ambiente sejam definidas ANTES de importar a app
 os.environ["API_KEY"] = "chave-ficticia-123"
 os.environ["MODEL_VERSION"] = "v1"
 os.environ["APP_ENV"] = "test"
+
+from app.main import app
 
 # O TestClient simula requisições HTTP diretamente na memória
 client = TestClient(app)
