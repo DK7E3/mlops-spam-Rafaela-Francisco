@@ -401,7 +401,7 @@
     <!-- Chave de API -->
     <div class="form-group">
       <label class="form-label" for="apiKeyInput">Chave de API</label>
-      <input type="password" id="apiKeyInput" class="form-input" placeholder="Digite a chave da API (ex: chave-ficticia-123)">
+      <input type="text" id="apiKeyInput" class="form-input" autocomplete="off" spellcheck="false" placeholder="Digite sua chave de API">
     </div>
 
     <!-- Mensagem -->
@@ -421,7 +421,7 @@
     <div class="error-box" id="errorBox"></div>
 
     <!-- Resultado -->
-    <div class="card-section" id="resultSection">
+    <div class="card-section" id="resultSection" style="display: none;">
       <div class="card-title">Resultado</div>
       <div class="card" id="resultCard">
         <div class="result-header">
@@ -471,7 +471,6 @@
   </div>
 
   <script>
-    // Recupera chave salva no localStorage se existir
     const savedKey = localStorage.getItem("SPAM_API_KEY");
     if (savedKey) {
       document.getElementById("apiKeyInput").value = savedKey;
@@ -589,6 +588,8 @@
     }
 
     function renderResult(data) {
+      const resultSection = document.getElementById("resultSection");
+      resultSection.style.display = "block";
       const isSpam = data.rotulo === "spam";
       const tagBadge = document.getElementById("resultTag");
       const tagIcon = document.getElementById("tagIcon");
@@ -653,9 +654,9 @@
     window.addEventListener("DOMContentLoaded", () => {
       checkHealth();
       fetchMetrics();
-      // Classifica uma vez o exemplo padrão para já preencher o visual
-      classifyMessage();
-      // Atualiza saúde periodicamente a cada 15 segundos
+      if (document.getElementById("apiKeyInput").value.trim()) {
+        classifyMessage();
+      }
       setInterval(checkHealth, 15000);
     });
   </script>

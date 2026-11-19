@@ -21,9 +21,11 @@ if env_path.exists():
                 os.environ.setdefault(k.strip(), v.strip())
 
 # --- Configurações obtidas do ambiente ---
-MODEL_VERSION = os.getenv("MODEL_VERSION", "v1")
-APP_ENV = os.getenv("APP_ENV", "dev")
+MODEL_VERSION = os.getenv("MODEL_VERSION", "v1").strip()
+APP_ENV = os.getenv("APP_ENV", "dev").strip()
 API_KEY = os.getenv("API_KEY")
+if API_KEY:
+    API_KEY = API_KEY.strip().strip('"').strip("'")
 MODEL_PATH = Path(
     os.getenv("MODEL_PATH", str(Path(__file__).resolve().parent.parent / "model" / "modelo.joblib"))
 )
@@ -113,7 +115,8 @@ def predict(msg: Mensagem, x_api_key: str | None = Header(None, alias="X-API-Key
 
     # 2. Valida chave de API se configurada no ambiente
     if API_KEY:
-        if not x_api_key or x_api_key != API_KEY:
+        header_key = (x_api_key or "").strip().strip('"').strip("'")
+        if header_key != API_KEY:
             raise HTTPException(
                 status_code=401,
                 detail="Chave de API inválida ou ausente. Forneça o cabeçalho X-API-Key."
