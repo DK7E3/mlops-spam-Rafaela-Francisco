@@ -618,14 +618,22 @@
 
     // Disparar carga de 50 requisições
     async function send50Requests() {
+      clearError();
+      const apiKey = document.getElementById("apiKeyInput").value.trim();
+      if (!apiKey) {
+        showError("Preencha a Chave de API antes de enviar o lote de 50 requisições.");
+        return;
+      }
+
       const btn = document.getElementById("btnLoad50");
       btn.disabled = true;
       const originalText = btn.innerHTML;
       btn.innerHTML = "<span>⏳</span> Enviando 50 reqs...";
 
-      const apiKey = document.getElementById("apiKeyInput").value.trim();
-      const headers = { "Content-Type": "application/json" };
-      if (apiKey) headers["X-API-Key"] = apiKey;
+      const headers = {
+        "Content-Type": "application/json",
+        "X-API-Key": apiKey
+      };
 
       const samples = [
         "Parabéns! Você ganhou um prêmio, clique no link para resgatar agora",
@@ -634,15 +642,24 @@
         "Favor enviar o relatório financeiro até as 17h"
       ];
 
+      let unauthorized = false;
       for (let i = 0; i < 50; i++) {
         const text = samples[i % samples.length];
         try {
-          await fetch("/predict", {
+          const res = await fetch("/predict", {
             method: "POST",
             headers: headers,
             body: JSON.stringify({ texto: text })
           });
+          if (res.status === 401) {
+            unauthorized = true;
+            break;
+          }
         } catch (e) {}
+      }
+
+      if (unauthorized) {
+        showError("Erro 401: Chave de API inválida ao enviar lote de requisições.");
       }
 
       btn.disabled = false;

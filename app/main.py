@@ -1,7 +1,7 @@
+"""API de inferência para classificação de mensagens spam (Etapa 1 - MLOps e Deploy)."""
 import os
 import time
 from pathlib import Path
-from typing import List
 
 import joblib
 from fastapi import FastAPI, HTTPException, Header, Request, Response
@@ -71,7 +71,7 @@ async def track_metrics(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
