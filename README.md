@@ -53,6 +53,8 @@ flowchart LR
 | **Servidor ASGI** | **Uvicorn** (`0.34.0`) | Servidor rápido e padrão de mercado para execução de aplicações FastAPI. |
 | **Machine Learning** | **scikit-learn** (`1.8.0`) + **Joblib** (`1.6.0`) | Versão obrigatória e exata para carregamento íntegro do artefato serializado `modelo.joblib`, evitando incompatibilidades de desserialização (`InconsistentVersionWarning`). |
 | **Interface Web** | HTML5, CSS3 Moderno e Vanilla JavaScript | Desenvolvido sem frameworks pesados (Node.js/React/Vue), garantindo carregamento instantâneo, zero dependências externas extras e execução leve acoplada ao próprio FastAPI (`StaticFiles`). |
+| **Containerização** | **Docker** (`python:3.12-slim`) | Garante reprodutibilidade entre ambientes, cache otimizado de camadas e isolamento de segredos via `.dockerignore`. |
+| **Orquestração Local** | **Kubernetes** (`Docker Desktop / kubeadm`) | Gerencia réplicas (`Deployment`), sondas de saúde (`livenessProbe` em `/health`), injeção de segredos (`Secret`) e balanceamento (`Service`). |
 | **Hospedagem / Deploy** | **Render** | Permite deploy contínuo direto do GitHub, integração nativa de variáveis de ambiente seguras e plano gratuito estável. |
 
 ---
@@ -172,6 +174,47 @@ As variáveis devem ser configuradas via arquivo `.env` (no ambiente local) ou n
    * **Interface Web:** [http://localhost:8000](http://localhost:8000)
    * **Documentação Interativa Swagger:** [http://localhost:8000/docs](http://localhost:8000/docs)
    * **Healthcheck:** [http://localhost:8000/health](http://localhost:8000/health)
+
+### 5.3 Executar via Docker (Container)
+
+1. **Construir a imagem:**
+   ```bash
+   docker build -t spam-api:v1 .
+   ```
+2. **Iniciar o container (injetando o `.env` sem embutir segredos na imagem):**
+   ```bash
+   docker run -d -p 8000:8000 --env-file .env --name classificador spam-api:v1
+   ```
+3. **Inspecionar logs e parar o container:**
+   ```bash
+   docker logs classificador
+   docker stop classificador && docker rm classificador
+   ```
+
+### 5.4 Executar no Cluster Kubernetes Local (`kubectl`)
+
+Com o Kubernetes ativado no Docker Desktop (`context: docker-desktop`) e a imagem `spam-api:v1` construída localmente:
+
+1. **Criar o Secret do Kubernetes a partir do seu `.env` local (mantém a `API_KEY` fora do Git):**
+   ```bash
+   kubectl create secret generic spam-api-env --from-env-file=.env
+   ```
+2. **Aplicar o manifesto (`Deployment` com 2 réplicas + `livenessProbe` em `/health` + `Service`):**
+   ```bash
+   kubectl apply -f k8s/deployment.yaml
+   kubectl get pods
+   kubectl get svc
+   ```
+3. **Expor o serviço localmente via `port-forward`:**
+   ```bash
+   kubectl port-forward svc/spam-api 8080:8000
+   ```
+   Acesse em: [http://localhost:8080](http://localhost:8080)
+4. **Comandos úteis de operação no cluster (escala e rollback):**
+   ```bash
+   kubectl scale deployment spam-api --replicas=3
+   kubectl rollout undo deployment/spam-api
+   ```
 
 ---
 
