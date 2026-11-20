@@ -1,4 +1,4 @@
-name: CI - Testes Automatizados
+name: CI/CD - Testes e Deploy
 
 # Dispara a esteira sempre que houver push ou pull request na branch main
 on:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   testes:
-    name: Executar Testes Unitários e Integração
+    name: Executar Testes Unitários e Integração (CI)
     runs-on: ubuntu-latest
 
     steps:
@@ -38,3 +38,22 @@ jobs:
           API_KEY: chave-ficticia-123
         run: |
           pytest -v
+
+  deploy:
+    name: Deploy Contínuo no Render (CD)
+    needs: testes
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Acionar Deploy Hook do Render
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "Erro: Secret RENDER_DEPLOY_HOOK_URL não encontrado nos Secrets de Actions."
+            exit 1
+          fi
+          curl -fsSL -X POST "$DEPLOY_HOOK"
+          echo ""
+          echo "Deploy acionado com sucesso no Render!"
