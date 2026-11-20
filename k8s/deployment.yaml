@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spam-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spam-api
+  template:
+    metadata:
+      labels:
+        app: spam-api
+    spec:
+      containers:
+        - name: spam-api
+          image: spam-api:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: APP_ENV
+              value: "test"
+            - name: MODEL_VERSION
+              value: "v1"
+          envFrom:
+            - secretRef:
+                name: spam-api-env
+                optional: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spam-api
+spec:
+  selector:
+    app: spam-api
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
