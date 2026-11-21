@@ -66,3 +66,22 @@ def test_metrics():
     assert "requisicoes" in data
     assert "erros_5xx" in data
     assert "latencia_media_ms" in data
+
+def test_predict_nao_spam():
+    """Classificação de mensagem legítima deve retornar rótulo 'nao_spam'."""
+    payload = {"texto": "A reunião foi remarcada para as 15h na sala 2"}
+    headers = {"X-API-Key": "chave-ficticia-123"}
+    response = client.post("/predict", json=payload, headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["rotulo"] == "nao_spam"
+    assert data["probabilidade"] >= 0.5
+    assert data["versao"] == "v1"
+
+
+def test_serve_index():
+    """A rota raiz (/) deve carregar a interface web estática com sucesso."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "text/html" in response.headers.get("content-type", "")
+    assert "Classificador de spam" in response.text
