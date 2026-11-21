@@ -1,4 +1,5 @@
 """API de inferência para classificação de mensagens spam (Etapa 1 - MLOps e Deploy)."""
+import logging
 import os
 import time
 from pathlib import Path
@@ -9,6 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+# --- Configuração de Logging Estruturado ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger("spam_api")
 
 # --- Carrega variáveis de ambiente de .env se existir localmente ---
 env_path = Path(__file__).resolve().parent.parent / ".env"
@@ -32,6 +41,7 @@ MODEL_PATH = Path(
 
 # --- Carrega o modelo de Machine Learning ---
 modelo = joblib.load(MODEL_PATH)
+logger.info("Modelo de Machine Learning carregado com sucesso a partir de %s", MODEL_PATH)
 
 app = FastAPI(
     title="API de classificação de spam",
@@ -108,6 +118,7 @@ def predict(msg: Mensagem, x_api_key: str | None = Header(None, alias="X-API-Key
     """Classifica mensagem em 'spam' ou 'nao_spam' com probabilidade."""
     # 1. Valida texto vazio ou apenas espaços
     if not msg.texto.strip():
+        logger.warning("Tentativa de inferência rejeitada: texto vazio ou composto apenas por espaços em branco.")
         raise HTTPException(
             status_code=400,
             detail="O texto da mensagem não pode ser vazio ou conter apenas espaços em branco."
@@ -117,6 +128,7 @@ def predict(msg: Mensagem, x_api_key: str | None = Header(None, alias="X-API-Key
     if API_KEY:
         header_key = (x_api_key or "").strip().strip('"').strip("'")
         if header_key != API_KEY:
+            logger.warning("Acesso não autorizado ao endpoint /predict: chave de API inválida ou ausente.")
             raise HTTPException(
                 status_code=401,
                 detail="Chave de API inválida ou ausente. Forneça o cabeçalho X-API-Key."
@@ -127,6 +139,13 @@ def predict(msg: Mensagem, x_api_key: str | None = Header(None, alias="X-API-Key
     indice = int(probabilidades.argmax())
     rotulo = str(modelo.classes_[indice])
     probabilidade = round(float(probabilidades[indice]), 2)
+
+    logger.info(
+        "Predição realizada | rotulo=%s | probabilidade=%.2f | versao=%s",
+        rotulo,
+        probabilidade,
+        MODEL_VERSION
+    )
 
     return {
         "rotulo": rotulo,
