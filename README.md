@@ -4,8 +4,7 @@
 > **Dupla:** Rafaela & Francisco  
 > **Repositório:** [https://github.com/DK7E3/mlops-spam-Rafaela-Francisco](https://github.com/DK7E3/mlops-spam-Rafaela-Francisco)  
 > **Versão de Entrega:** `v1`  
-> **URL da Aplicação Online (Render):** `https://mlops-spam-rafaela-francisco.onrender.com` *(em processo de publicação)*
-
+> **URL da Aplicação Online (Render):** <https://mlops-spam-rafaela-francisco.onrender.com> *(Ativa e Operacional)*
 ---
 
 ## 1. Visão Geral do Projeto
@@ -54,7 +53,8 @@ flowchart LR
 | **Machine Learning** | **scikit-learn** (`1.8.0`) + **Joblib** (`1.6.0`) | Versão obrigatória e exata para carregamento íntegro do artefato serializado `modelo.joblib`, evitando incompatibilidades de desserialização (`InconsistentVersionWarning`). |
 | **Interface Web** | HTML5, CSS3 Moderno e Vanilla JavaScript | Desenvolvido sem frameworks pesados (Node.js/React/Vue), garantindo carregamento instantâneo, zero dependências externas extras e execução leve acoplada ao próprio FastAPI (`StaticFiles`). |
 | **Containerização** | **Docker** (`python:3.12-slim`) | Garante reprodutibilidade entre ambientes, cache otimizado de camadas e isolamento de segredos via `.dockerignore`. |
-| **Orquestração Local** | **Kubernetes** (`Docker Desktop / kubeadm`) | Gerencia réplicas (`Deployment`), sondas de saúde (`livenessProbe` em `/health`), injeção de segredos (`Secret`) e balanceamento (`Service`). |
+| **Orquestração Local** | **Kubernetes** (`Docker Desktop / kubeadm`) | Gerencia réplicas (`Deployment`), sondas de saúde e prontidão (`livenessProbe` e `readinessProbe` em `/health`), injeção de segredos (`Secret`) e balanceamento (`Service`). |
+| **Observabilidade & Logs** | **Python Logging** | Logs estruturados padronizados (`INFO` para inferências bem-sucedidas e carregamento de modelo, `WARNING` para erros 400 e acessos 401 não autorizados). |
 | **Hospedagem / Deploy** | **Render** | Permite deploy contínuo direto do GitHub, integração nativa de variáveis de ambiente seguras e plano gratuito estável. |
 
 ---
@@ -253,7 +253,7 @@ curl -i -X POST http://localhost:8000/predict \
 
 ## 7. Testes Automatizados e Pipeline de CI
 
-O projeto possui testes automatizados em `tests/test_api.py` cobrindo `/health`, `/metrics`, autenticação (`401`), validação de texto vazio (`400`) e inferência (`200`).
+O projeto possui **8 testes automatizados** em `tests/test_api.py` cobrindo checagem de saúde (`/health`), telemetria (`/metrics`), autenticação (`401`), validação de texto vazio (`400`), predição de spam (`200`), predição de mensagem legítima `nao_spam` (`200`) e carregamento da interface web estática (`GET /`).
 
 ### Rodar os testes localmente
 ```bash
@@ -275,9 +275,13 @@ O desenvolvimento foi conduzido em regime de **Pair Programming** (piloto e copi
   * Implementação da arquitetura base do FastAPI e carregamento do modelo em memória.
   * Construção e estilização da interface web (`index.html`) com tema Dark Mode.
   * Criação do coletor de métricas e gerador de carga (50 requisições).
+  * Containerização com Dockerfile e manifesto base do Kubernetes.
+  * Configuração do workflow de CI/CD para deploy no Render via Webhook.
 
 * **Rafaela:**
   * Implementação da lógica de autenticação por cabeçalho `X-API-Key` e validações de erro (HTTP 401 e 400).
+  * Implementação da observabilidade com logs estruturados (`logging`) na API (`INFO` e `WARNING`).
+  * Configuração e inclusão da sonda de prontidão (`readinessProbe`) no manifesto Kubernetes para evitar tráfego antes do carregamento do modelo.
+  * Elaboração e expansão da suíte de 8 testes automatizados unitários e de integração (`tests/test_api.py`), cobrindo `nao_spam` e rota estática raiz (`GET /`).
   * Configuração da política de CORS para garantir integridade das chamadas da interface.
-  * Elaboração dos testes unitários e de integração dos endpoints.
-  * Estruturação e redação da documentação técnica e instruções do `README.md`.
+  * Estruturação e redação da documentação técnica no `README.md` e fechamento da versão `v1`.
