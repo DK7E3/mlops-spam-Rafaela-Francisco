@@ -401,7 +401,7 @@
     <!-- Chave de API -->
     <div class="form-group">
       <label class="form-label" for="apiKeyInput">Chave de API</label>
-      <input type="text" id="apiKeyInput" class="form-input" autocomplete="off" spellcheck="false" placeholder="Digite sua chave de API">
+      <input type="text" id="apiKeyInput" class="form-input" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Digite sua chave de API">
     </div>
 
     <!-- Mensagem -->
@@ -471,15 +471,20 @@
   </div>
 
   <script>
-    const savedKey = localStorage.getItem("SPAM_API_KEY");
+    function sanitizeApiKey(raw) {
+      if (!raw) return "";
+      return raw
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/["']/g, "")
+        .replace(/[^\x20-\x7E]/g, "")
+        .trim();
+    }
+
+    const savedKey = sanitizeApiKey(localStorage.getItem("SPAM_API_KEY") || "");
     if (savedKey) {
       document.getElementById("apiKeyInput").value = savedKey;
     }
-
-    // Salva a chave quando o usuário alterar
-    document.getElementById("apiKeyInput").addEventListener("input", (e) => {
-      localStorage.setItem("SPAM_API_KEY", e.target.value.trim());
-    });
 
     // Exemplos rápidos
     function setExampleSpam() {
@@ -541,7 +546,7 @@
     async function classifyMessage() {
       clearError();
       const texto = document.getElementById("messageInput").value;
-      const apiKey = document.getElementById("apiKeyInput").value.trim();
+      const apiKey = sanitizeApiKey(document.getElementById("apiKeyInput").value);
 
       if (!texto.trim()) {
         showError("A mensagem não pode ser vazia.");
@@ -570,7 +575,8 @@
           const errData = await res.json().catch(() => ({}));
           const detail = errData.detail || `Erro HTTP ${res.status}`;
           if (res.status === 401) {
-            showError(`Erro 401: Chave de API inválida ou ausente. ${detail}`);
+            localStorage.removeItem("SPAM_API_KEY");
+            showError(`Erro 401: ${detail}`);
           } else {
             showError(`Erro ${res.status}: ${detail}`);
           }
@@ -578,6 +584,9 @@
           return;
         }
 
+        if (apiKey) {
+          localStorage.setItem("SPAM_API_KEY", apiKey);
+        }
         const data = await res.json();
         renderResult(data);
         fetchMetrics();
@@ -619,7 +628,7 @@
     // Disparar carga de 50 requisições
     async function send50Requests() {
       clearError();
-      const apiKey = document.getElementById("apiKeyInput").value.trim();
+      const apiKey = sanitizeApiKey(document.getElementById("apiKeyInput").value);
       if (!apiKey) {
         showError("Preencha a Chave de API antes de enviar o lote de 50 requisições.");
         return;
@@ -671,9 +680,6 @@
     window.addEventListener("DOMContentLoaded", () => {
       checkHealth();
       fetchMetrics();
-      if (document.getElementById("apiKeyInput").value.trim()) {
-        classifyMessage();
-      }
       setInterval(checkHealth, 15000);
     });
   </script>
