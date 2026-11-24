@@ -2,6 +2,7 @@
 import logging
 import os
 import time
+import unicodedata
 from pathlib import Path
 
 import joblib
@@ -29,12 +30,24 @@ if env_path.exists():
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip())
 
+def _normalize_key(val: str | None) -> str:
+    """Normaliza a chave removendo espaços, aspas, acentos e diferenças de maiúsculas/minúsculas."""
+    if not val:
+        return ""
+    cleaned = val.strip().strip('"').strip("'").strip()
+    if cleaned.lower().startswith("bearer "):
+        cleaned = cleaned[7:].strip()
+    cleaned = "".join(
+        c for c in unicodedata.normalize("NFKD", cleaned)
+        if not unicodedata.combining(c) and c.isprintable()
+    )
+    return cleaned.strip().lower()
+
+
 # --- Configurações obtidas do ambiente ---
 MODEL_VERSION = os.getenv("MODEL_VERSION", "v1").strip()
 APP_ENV = os.getenv("APP_ENV", "dev").strip()
-API_KEY = os.getenv("API_KEY")
-if API_KEY:
-    API_KEY = API_KEY.strip().strip('"').strip("'")
+API_KEY = _normalize_key(os.getenv("API_KEY")) or None
 MODEL_PATH = Path(
     os.getenv("MODEL_PATH", str(Path(__file__).resolve().parent.parent / "model" / "modelo.joblib"))
 )
@@ -114,7 +127,11 @@ def get_metrics():
 
 
 @app.post("/predict")
-def predict(msg: Mensagem, x_api_key: str | None = Header(None, alias="X-API-Key")):
+def predict(
+    msg: Mensagem,
+    request: Request,
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+):
     """Classifica mensagem em 'spam' ou 'nao_spam' com probabilidade."""
     # 1. Valida texto vazio ou apenas espaços
     if not msg.texto.strip():
@@ -125,9 +142,11 @@ def predict(msg: Mensagem, x_api_key: str | None = Header(None, alias="X-API-Key
         )
 
     # 2. Valida chave de API se configurada no ambiente
-    if API_KEY:
-        header_key = (x_api_key or "").strip().strip('"').strip("'")
-        if header_key != API_KEY:
+    expected_key = _normalize_key(os.getenv("API_KEY")) or API_KEY
+    if expected_key:
+        raw_header = x_api_key or request.headers.get("x-api-key") or request.headers.get("authorization")
+        header_key = _normalize_key(raw_header)
+        if not header_key or header_key != expected_key:
             logger.warning("Acesso não autorizado ao endpoint /predict: chave de API inválida ou ausente.")
             raise HTTPException(
                 status_code=401,
