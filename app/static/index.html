@@ -152,6 +152,16 @@
       border-color: #52525b;
     }
 
+    #apiKeyInput {
+      -webkit-text-security: disc;
+      letter-spacing: 2px;
+    }
+
+    #apiKeyInput:placeholder-shown {
+      -webkit-text-security: none;
+      letter-spacing: normal;
+    }
+
     textarea.form-input {
       min-height: 85px;
       resize: vertical;
@@ -401,7 +411,7 @@
     <!-- Chave de API -->
     <div class="form-group">
       <label class="form-label" for="apiKeyInput">Chave de API</label>
-      <input type="text" id="apiKeyInput" class="form-input" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Digite sua chave de API">
+      <input type="password" id="apiKeyInput" class="form-input" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="••••••••••••••••">
     </div>
 
     <!-- Mensagem -->
@@ -572,13 +582,13 @@
         document.getElementById("responseTime").textContent = `resposta em ${elapsedMs} ms`;
 
         if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          const detail = errData.detail || `Erro HTTP ${res.status}`;
           if (res.status === 401) {
             localStorage.removeItem("SPAM_API_KEY");
-            showError(`Erro 401: ${detail}`);
+            showError("Não autorizado.");
+          } else if (res.status >= 400 && res.status < 500) {
+            showError("Mensagem inválida.");
           } else {
-            showError(`Erro ${res.status}: ${detail}`);
+            showError("Erro ao processar a solicitação.");
           }
           fetchMetrics();
           return;
@@ -591,7 +601,7 @@
         renderResult(data);
         fetchMetrics();
       } catch (err) {
-        showError(`Falha ao conectar com o serviço: ${err.message}`);
+        showError("Serviço indisponível.");
         fetchMetrics();
       }
     }
@@ -668,7 +678,7 @@
       }
 
       if (unauthorized) {
-        showError("Erro 401: Chave de API inválida ao enviar lote de requisições.");
+        showError("Não autorizado.");
       }
 
       btn.disabled = false;

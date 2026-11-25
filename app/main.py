@@ -138,7 +138,7 @@ def predict(
         logger.warning("Tentativa de inferência rejeitada: texto vazio ou composto apenas por espaços em branco.")
         raise HTTPException(
             status_code=400,
-            detail="O texto da mensagem não pode ser vazio ou conter apenas espaços em branco."
+            detail="Mensagem inválida."
         )
 
     # 2. Valida chave de API se configurada no ambiente
@@ -150,7 +150,7 @@ def predict(
             logger.warning("Acesso não autorizado ao endpoint /predict: chave de API inválida ou ausente.")
             raise HTTPException(
                 status_code=401,
-                detail="Chave de API inválida ou ausente. Forneça o cabeçalho X-API-Key."
+                detail="Não autorizado."
             )
 
     # 3. Inferência com o modelo treinado

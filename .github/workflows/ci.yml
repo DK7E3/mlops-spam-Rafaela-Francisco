@@ -1,57 +1,103 @@
-name: CI/CD - Testes e Deploy
+name: Pipeline CI/CD - Classificador de Spam
 
-# Dispara a esteira sempre que houver push ou pull request na branch main
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
-jobs:
-  testes:
-    name: Executar Testes Unitários e Integração (CI)
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
+  packages: write
 
+jobs:
+  lint:
+    name: 1. Build e Lint (Ruff)
+    runs-on: ubuntu-latest
     steps:
-      # 1. Baixa o código do seu repositório para o computador do GitHub
       - name: Baixar código do repositório
         uses: actions/checkout@v4
 
-      # 2. Configura a versão correta do Python
       - name: Configurar Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      # 3. Instala as dependências do projeto e as ferramentas de teste
+      - name: Instalar e executar Ruff (Lint)
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+          ruff check app/ tests/
+
+  testes:
+    name: 2. Testes Automatizados (Pytest)
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Instalar dependências
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest httpx
 
-      # 4. Roda os testes com pytest
-      - name: Executar Pytest
+      - name: Executar Testes Funcionais (test_api.py)
         env:
           APP_ENV: test
           MODEL_VERSION: v1
           API_KEY: chave-ficticia-123
         run: |
-          pytest -v
+          pytest tests/test_api.py -v
+
+      - name: Executar Testes de Segurança (test_security.py)
+        env:
+          APP_ENV: test
+          MODEL_VERSION: v1
+          API_KEY: chave-ficticia-123
+        run: |
+          pytest tests/test_security.py -v
+
+  docker:
+    name: 3. Empacotar e Publicar Imagem Docker (GHCR)
+    needs: testes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      - name: Construir Imagem Docker (spam-api)
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/spam-api:v1 .
+
+      - name: Autenticar e Publicar no GitHub Container Registry (GHCR)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          IMAGE_LOWER=$(echo "ghcr.io/${{ github.repository_owner }}/spam-api:v1" | tr '[:upper:]' '[:lower:]')
+          docker tag ghcr.io/${{ github.repository_owner }}/spam-api:v1 "$IMAGE_LOWER"
+          docker push "$IMAGE_LOWER"
 
   deploy:
-    name: Deploy Contínuo no Render (CD)
-    needs: testes
+    name: 4. Deploy em Ambiente de Teste
+    needs: docker
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-
     steps:
       - name: Acionar Deploy Hook do Render
         env:
           DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
           if [ -z "$DEPLOY_HOOK" ]; then
-            echo "Erro: Secret RENDER_DEPLOY_HOOK_URL não encontrado nos Secrets de Actions."
+            echo "Erro: Secret RENDER_DEPLOY_HOOK_URL não configurado."
             exit 1
           fi
           curl -fsSL -X POST "$DEPLOY_HOOK"
