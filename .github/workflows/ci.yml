@@ -74,7 +74,8 @@ jobs:
 
       - name: Construir Imagem Docker (spam-api)
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/spam-api:v1 .
+          IMAGE_LOWER=$(echo "ghcr.io/${{ github.repository_owner }}/spam-api:v1" | tr '[:upper:]' '[:lower:]')
+          docker build -t "$IMAGE_LOWER" .
 
       - name: Autenticar e Publicar no GitHub Container Registry (GHCR)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -83,7 +84,6 @@ jobs:
         run: |
           echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           IMAGE_LOWER=$(echo "ghcr.io/${{ github.repository_owner }}/spam-api:v1" | tr '[:upper:]' '[:lower:]')
-          docker tag ghcr.io/${{ github.repository_owner }}/spam-api:v1 "$IMAGE_LOWER"
           docker push "$IMAGE_LOWER"
 
   deploy:
