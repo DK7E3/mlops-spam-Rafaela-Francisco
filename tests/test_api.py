@@ -1,5 +1,6 @@
 """Testes funcionais e de contrato dos endpoints da API (/health, /predict, /metrics e /)."""
 import os
+
 from fastapi.testclient import TestClient
 
 # Garante que durante os testes as variáveis de ambiente sejam definidas ANTES de importar a app
@@ -7,7 +8,7 @@ os.environ["API_KEY"] = "chave-ficticia-123"
 os.environ["MODEL_VERSION"] = "v1"
 os.environ["APP_ENV"] = "test"
 
-from app.main import app  # noqa: E402
+from app.main import app
 
 client = TestClient(app)
 

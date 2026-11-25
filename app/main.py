@@ -6,7 +6,7 @@ import unicodedata
 from pathlib import Path
 
 import joblib
-from fastapi import FastAPI, HTTPException, Header, Request, Response
+from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
