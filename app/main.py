@@ -64,7 +64,7 @@ def log_evento(nivel: str, mensagem: str, **campos) -> None:
 try:
     modelo = joblib.load(MODEL_PATH)
     log_evento("INFO", "serviço iniciado e modelo carregado", ambiente=APP_ENV)
-except Exception as err:
+except (OSError, ValueError, RuntimeError, EOFError) as err:
     modelo = None
     log_evento("ERROR", "falha ao carregar modelo na inicialização", erro=type(err).__name__)
 
