@@ -36,3 +36,12 @@ def test_predict_texto_vazio_retorna_400():
     response = client.post("/predict", json=payload, headers=headers)
     assert response.status_code == 400
     assert response.json()["detail"] == "Mensagem inválida."
+
+
+def test_cabecalhos_seguranca_owasp_presentes():
+    """As respostas devem incluir cabeçalhos HTTP de proteção OWASP."""
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.headers.get("X-Content-Type-Options") == "nosniff"
+    assert response.headers.get("X-Frame-Options") == "DENY"
+    assert response.headers.get("Referrer-Policy") == "no-referrer"

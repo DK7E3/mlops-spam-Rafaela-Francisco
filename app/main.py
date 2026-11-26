@@ -1,6 +1,7 @@
 """API de inferência para classificação de mensagens spam (MLOps e Deploy)."""
 import json
 import os
+import secrets
 import time
 import unicodedata
 import uuid
@@ -59,9 +60,13 @@ def log_evento(nivel: str, mensagem: str, **campos) -> None:
     print(json.dumps(registro, ensure_ascii=False), flush=True)
 
 
-# --- Carrega o modelo de Machine Learning ---
-modelo = joblib.load(MODEL_PATH)
-log_evento("INFO", "serviço iniciado e modelo carregado", ambiente=APP_ENV)
+# --- Carrega o modelo de Machine Learning com tratamento de falha ---
+try:
+    modelo = joblib.load(MODEL_PATH)
+    log_evento("INFO", "serviço iniciado e modelo carregado", ambiente=APP_ENV)
+except Exception as err:
+    modelo = None
+    log_evento("ERROR", "falha ao carregar modelo na inicialização", erro=type(err).__name__)
 
 app = FastAPI(
     title="API de classificação de spam",
@@ -88,6 +93,9 @@ async def track_metrics(request: Request, call_next):
         response: Response = await call_next(request)
         duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
         response.headers["X-Request-ID"] = id_req
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
         if request.url.path in ["/predict", "/health", "/ready"]:
             metrics["total_requests"] += 1
             metrics["latencies_ms"].append(duration_ms)
@@ -192,12 +200,12 @@ def predict(
             detail="Mensagem inválida."
         )
 
-    # 2. Valida chave de API se configurada no ambiente
+    # 2. Valida chave de API em tempo constante (prevenção contra timing attack)
     expected_key = _normalize_key(os.getenv("API_KEY")) or API_KEY
     if expected_key:
         raw_header = x_api_key or request.headers.get("x-api-key") or request.headers.get("authorization")
         header_key = _normalize_key(raw_header)
-        if not header_key or header_key != expected_key:
+        if not header_key or not secrets.compare_digest(header_key, expected_key):
             ms = round((time.perf_counter() - t0) * 1000, 2)
             log_evento(
                 "WARNING",
@@ -212,7 +220,23 @@ def predict(
                 detail="Não autorizado."
             )
 
-    # 3. Inferência com o modelo treinado (sem registrar o texto do usuário nos logs)
+    # 3. Verifica se o modelo está disponível na memória
+    if modelo is None:
+        ms = round((time.perf_counter() - t0) * 1000, 2)
+        log_evento(
+            "ERROR",
+            "modelo indisponível para inferência",
+            id=id_req,
+            rota="/predict",
+            status=503,
+            ms=ms,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Serviço indisponível."
+        )
+
+    # 4. Inferência com o modelo treinado (sem registrar o texto do usuário nos logs)
     probabilidades = modelo.predict_proba([msg.texto])[0]
     indice = int(probabilidades.argmax())
     rotulo = str(modelo.classes_[indice])
