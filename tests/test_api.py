@@ -21,6 +21,16 @@ def test_health_check():
     assert data["status"] == "ok"
     assert data["versao"] == "v1"
     assert data["ambiente"] in ["dev", "test", "prod"]
+    assert "X-Request-ID" in response.headers
+
+
+def test_ready_check():
+    """O endpoint /ready (readiness probe) deve retornar 200 quando o modelo está carregado."""
+    response = client.get("/ready")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "pronto"
+    assert data["versao"] == "v1"
 
 
 def test_predict_sucesso():

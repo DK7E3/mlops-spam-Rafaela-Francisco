@@ -251,22 +251,51 @@ curl -i -X POST http://localhost:8000/predict \
 
 ---
 
-## 7. Testes Automatizados e Pipeline de CI
+## 7. Testes Automatizados e Pipeline de CI/CD
 
-O projeto possui **8 testes automatizados** em `tests/test_api.py` cobrindo checagem de saúde (`/health`), telemetria (`/metrics`), autenticação (`401`), validação de texto vazio (`400`), predição de spam (`200`), predição de mensagem legítima `nao_spam` (`200`) e carregamento da interface web estática (`GET /`).
+O projeto possui **9 testes automatizados** divididos em `tests/test_api.py` (testes funcionais: `/health`, `/ready`, `/metrics`, predição `spam` e `nao_spam`, interface web `GET /`) e `tests/test_security.py` (testes de segurança e validação: erros `401` e `400`).
 
-### Rodar os testes localmente
+### Rodar os testes e o linter localmente
 ```bash
-pip install pytest httpx
+pip install pytest httpx ruff
+ruff check app/ tests/
 pytest -v
 ```
 
-### Integração Contínua (GitHub Actions)
-O workflow definido em `.github/workflows/ci.yml` executa automaticamente a cada `push` ou `pull_request` direcionado à branch `main`, instalando o Python 3.12, as dependências exatas e executando `pytest -v`.
+### Integração e Entrega Contínua (GitHub Actions — 4 Etapas)
+O workflow definido em `.github/workflows/ci.yml` executa automaticamente 4 etapas encadeadas:
+1. **1. Build e Lint (Ruff):** valida sintaxe e padronização do código Python.
+2. **2. Testes Automatizados (Pytest):** executa `tests/test_api.py` e `tests/test_security.py`.
+3. **3. Empacotar e Publicar Imagem Docker (GHCR):** constrói a imagem Docker e publica no *GitHub Container Registry* (`ghcr.io`).
+4. **4. Deploy em Ambiente de Teste:** aciona o *Deploy Hook* do Render apenas se todas as etapas anteriores passarem na branch `main`.
 
 ---
 
-## 8. Divisão de Responsabilidades da Dupla
+## 8. Observabilidade, Probes e Automação de Operações (Etapa 4)
+
+* **Logs Estruturados em JSON (`stdout`):** cada evento da API é emitido como uma linha JSON na saída padrão (`hora`, `nivel`, `mensagem`, `versao`, `id`, `rota`, `status`, `ms`), incluindo um identificador único por requisição (`X-Request-ID`) e **sem jamais registrar chaves de API ou o texto das mensagens dos usuários**.
+  ```json
+  {"hora": "20:15:03", "nivel": "INFO", "mensagem": "requisição atendida", "versao": "v1", "id": "a1b2c3d4", "rota": "/predict", "status": 200, "ms": 2.1, "rotulo": "spam", "probabilidade": 0.67}
+  ```
+* **Probes e Recursos no Kubernetes (`k8s/deployment.yaml`):**
+  * `livenessProbe` em `GET /health` e `readinessProbe` em `GET /ready`.
+  * Estratégia `RollingUpdate` (`maxUnavailable: 0`, `maxSurge: 1`) e limites de recursos (`requests: 100m CPU / 128Mi RAM`, `limits: 256Mi RAM`).
+* **Script de Verificação, Alertas e Auto-Recuperação (`scripts/verificar_saude.py`):**
+  * Monitora `/health` e `/metrics` a cada 10 segundos, emitindo alertas em JSON se a latência média ultrapassar `500 ms`, se `erros_5xx > 5` ou se o serviço cair (acionando `kubectl rollout restart deployment/spam-api` após 3 falhas seguidas):
+    ```bash
+    python scripts/verificar_saude.py --once
+    python scripts/verificar_saude.py
+    ```
+* **CronJob no Cluster (`k8s/cronjob.yaml`):**
+  * Tarefa recorrente agendada a cada 5 minutos (`*/5 * * * *`) para verificar `http://spam-api:8000/health` internamente no cluster:
+    ```bash
+    kubectl apply -f k8s/cronjob.yaml
+    kubectl get cronjobs
+    ```
+
+---
+
+## 9. Divisão de Responsabilidades da Dupla
 
 O desenvolvimento foi conduzido em regime de **Pair Programming** (piloto e copiloto), com alternância de tarefas:
 
