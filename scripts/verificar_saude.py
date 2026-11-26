@@ -10,6 +10,7 @@ import os
 import subprocess
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 BASE_URL = os.getenv("SERVICE_URL", "http://localhost:8000").rstrip("/")
@@ -33,6 +34,10 @@ def log_automacao(nivel: str, mensagem: str, **campos) -> None:
 
 def checar_servico(url_base: str) -> tuple[bool, dict]:
     """Consulta /health e /metrics retornando (saudavel, metricas)."""
+    parsed = urllib.parse.urlparse(url_base)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Esquema de URL não permitido: {parsed.scheme}")
+
     try:
         with urllib.request.urlopen(f"{url_base}/health", timeout=5) as resp_health:
             ok = resp_health.status == 200
